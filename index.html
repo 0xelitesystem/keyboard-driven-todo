@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keyboard-Driven Todo</title>
+<meta name="description" content="A todo list with vim-style keyboard shortcuts. j/k to navigate, x to toggle, dd to delete. No mouse required.">
+<meta name="ai.description" content="Single-file todo list with vim-inspired keyboard shortcuts: j/k navigate, x toggles done, dd deletes, i appends, A inserts at top, /filter searches, u undoes, gg/G first/last, !done/!todo/!all filter views. In-memory state only. Light and dark themes.">
+<style>
+:root{--bg:#f5f5f0;--surface:#ffffff;--surface-2:#ebebe5;--ink:#1a1a1a;--ink-soft:#5a5a55;--rule:#d4d4cc;--rule-strong:#1a1a1a;--accent:#a32626;--accent-soft:#f5dadc;--mono:ui-monospace,"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;--sans:"Inter",ui-sans-serif,system-ui,-apple-system,sans-serif;--ok:#1f6f43;--ok-soft:#e3f2ea;--err:#b3261e;--err-soft:#fbe9e7;--warn:#a04500;--warn-soft:#faecd9}
+[data-theme="dark"]{--bg:#0e0e0c;--surface:#181816;--surface-2:#13130f;--ink:#ebebe2;--ink-soft:#9a9a8e;--rule:#2a2a26;--rule-strong:#ebebe2;--accent:#e87171;--accent-soft:#3d1818;--ok:#7fc99c;--ok-soft:#1f3327;--err:#f08585;--err-soft:#3d2222;--warn:#e6a960;--warn-soft:#3d2f1c}
+[data-theme="dark"] button.primary, [data-theme="dark"] a.primary { color: var(--bg) !important; }
+[data-theme="dark"] button.primary, [data-theme="dark"] a.primary { border-color: var(--accent) !important; }
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+body{font-family:var(--mono);background:var(--bg);color:var(--ink);line-height:1.55;font-size:14px;min-height:100vh}
+.skip-link{position:absolute;left:-9999px;top:0;background:var(--accent);color:#fff;padding:.5rem 1rem;z-index:100;font-weight:600}
+.skip-link:focus{left:1rem;top:1rem}
+.layout{max-width:780px;margin:0 auto;padding:2rem 1.25rem 4rem}
+header{display:grid;grid-template-columns:1fr auto;gap:1.5rem;align-items:end;padding-bottom:1.25rem;border-bottom:1px solid var(--rule-strong);margin-bottom:1.5rem}
+.brand{font-size:.6875rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.5rem;font-weight:600}
+h1{font-family:var(--sans);font-size:clamp(1.625rem,4vw,2.375rem);font-weight:700;letter-spacing:-.02em;line-height:1.05}
+h1 .accent{color:var(--accent)}
+.subtitle{margin-top:.5rem;color:var(--ink-soft);font-size:.875rem;max-width:520px}
+.theme-toggle{background:var(--surface);color:var(--ink);border:1px solid var(--rule-strong);border-radius:3px;padding:.5rem .75rem;font:inherit;font-size:.75rem;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;display:inline-flex;align-items:center;gap:.4rem;flex-shrink:0}
+.theme-toggle:hover{background:var(--ink);color:var(--bg)}
+.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.theme-toggle svg{width:14px;height:14px}
+.cheatsheet{background:var(--surface);border:1px solid var(--rule);border-radius:3px;padding:.875rem 1rem;margin-bottom:1rem;font-size:.75rem}
+.cheatsheet-title{font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:.4rem;font-size:.6875rem}
+.cheats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.2rem .75rem}
+.cheat{display:flex;gap:.4rem;align-items:baseline}
+.cheat kbd{background:var(--surface-2);border:1px solid var(--rule);border-bottom-width:2px;border-radius:2px;padding:.05rem .35rem;font-family:var(--mono);font-size:.6875rem;font-weight:600;color:var(--ink)}
+.cheat-desc{color:var(--ink-soft);font-size:.6875rem}
+.list{background:var(--surface);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.list-meta{padding:.5rem .875rem;background:var(--surface-2);border-bottom:1px solid var(--rule);font-size:.6875rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.filter-state{color:var(--accent);font-weight:700}
+.todo-row{display:flex;align-items:flex-start;gap:.5rem;padding:.5rem .75rem;border-top:1px solid var(--rule);cursor:default}
+.todo-row:first-child{border-top:none}
+.todo-row.selected{background:var(--accent-soft)}
+.todo-row.done .todo-text{color:var(--ink-soft);text-decoration:line-through;text-decoration-thickness:1px}
+.checkbox{width:14px;height:14px;border:1px solid var(--ink-soft);border-radius:2px;flex-shrink:0;margin-top:.2rem;display:inline-block;background:var(--bg)}
+.todo-row.done .checkbox{background:var(--accent);border-color:var(--accent);position:relative}
+.todo-row.done .checkbox::after{content:"";position:absolute;top:1px;left:4px;width:3px;height:7px;border:solid white;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.todo-text{flex:1;font-size:.875rem;word-break:break-word;line-height:1.5}
+.todo-num{color:var(--ink-soft);font-size:.6875rem;font-weight:600;min-width:24px;text-align:right;font-variant-numeric:tabular-nums;margin-top:.2rem}
+.empty{padding:2rem 1rem;text-align:center;color:var(--ink-soft);font-style:italic;font-size:.875rem}
+.cmd-bar{display:none;padding:.5rem .75rem;background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:.875rem;align-items:center;gap:.4rem}
+.cmd-bar.show{display:flex}
+.cmd-bar input{flex:1;background:transparent;color:var(--bg);border:none;outline:none;font:inherit;font-family:var(--mono);font-size:.875rem;padding:0}
+.cmd-bar .label{color:var(--accent)}
+.status-line{padding:.4rem .875rem;font-size:.6875rem;color:var(--ink-soft);text-align:right;border-top:1px solid var(--rule);background:var(--surface-2)}
+.status-line .key{font-family:var(--mono);background:var(--bg);padding:.05rem .25rem;border-radius:2px;border:1px solid var(--rule)}
+footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--rule);font-size:.75rem;color:var(--ink-soft);line-height:1.7}
+footer a{color:var(--ink-soft);text-decoration:underline;text-underline-offset:2px}
+footer a:hover{color:var(--accent)}
+@media(max-width:540px){.layout{padding:1.25rem 1rem 3rem}h1{font-size:1.375rem}header{grid-template-columns:1fr}.cheats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body data-theme="light">
+<a href="#main" class="skip-link">Skip to main</a>
+<div class="layout">
+<header>
+<div>
+<div class="brand">KEYBOARD // TODO</div>
+<h1>Vim-style <span class="accent">todo.</span></h1>
+<p class="subtitle">No buttons. j/k to navigate, x to toggle, dd to delete, i to add. Built for keyboards.</p>
+</div>
+<button type="button" class="theme-toggle" id="theme-btn" aria-label="Toggle theme" aria-pressed="false">
+<svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+</svg>
+<span id="theme-label">Dark</span>
+</button>
+</header>
+<main id="main">
+<div class="cheatsheet">
+<div class="cheatsheet-title">Shortcuts</div>
+<div class="cheats">
+<div class="cheat"><kbd>j</kbd><span class="cheat-desc">down</span></div>
+<div class="cheat"><kbd>k</kbd><span class="cheat-desc">up</span></div>
+<div class="cheat"><kbd>x</kbd><span class="cheat-desc">toggle done</span></div>
+<div class="cheat"><kbd>dd</kbd><span class="cheat-desc">delete</span></div>
+<div class="cheat"><kbd>i</kbd><span class="cheat-desc">append item</span></div>
+<div class="cheat"><kbd>A</kbd><span class="cheat-desc">add at top</span></div>
+<div class="cheat"><kbd>e</kbd><span class="cheat-desc">edit</span></div>
+<div class="cheat"><kbd>u</kbd><span class="cheat-desc">undo</span></div>
+<div class="cheat"><kbd>gg</kbd><span class="cheat-desc">first</span></div>
+<div class="cheat"><kbd>G</kbd><span class="cheat-desc">last</span></div>
+<div class="cheat"><kbd>/</kbd><span class="cheat-desc">filter</span></div>
+<div class="cheat"><kbd>!</kbd><span class="cheat-desc">view: !done !todo !all</span></div>
+<div class="cheat"><kbd>?</kbd><span class="cheat-desc">help</span></div>
+<div class="cheat"><kbd>Esc</kbd><span class="cheat-desc">cancel</span></div>
+</div>
+</div>
+<div class="list">
+<div class="list-meta">
+<span><span id="todo-count">0</span> todo / <span id="done-count">0</span> done</span>
+<span class="filter-state" id="filter-state">View: all</span>
+</div>
+<div id="rows-container"></div>
+<div class="cmd-bar" id="cmd-bar">
+<span class="label" id="cmd-label">:</span>
+<input type="text" id="cmd-input" autocomplete="off" spellcheck="false">
+</div>
+<div class="status-line" id="status-line">Press <span class="key">i</span> to add your first task, or <span class="key">?</span> for help</div>
+</div>
+</main>
+<footer>
+<p>Source: <a href="https://github.com/0xelitesystem/keyboard-driven-todo" target="_blank" rel="noopener">github.com/0xelitesystem/keyboard-driven-todo</a></p>
+<p>Related: <a href="https://github.com/0xelitesystem/terminal-portfolio" target="_blank" rel="noopener">terminal-portfolio</a> &middot; <a href="https://github.com/0xelitesystem/regex-tester-with-explainer" target="_blank" rel="noopener">regex-tester-with-explainer</a></p>
+<p>State is held in memory only. Refreshing the page clears the list. Add localStorage in your fork if you want persistence (acknowledged trade-off: localStorage is XSS-readable).</p>
+</footer>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let todos=[
+  {id:1,text:"Learn the keyboard shortcuts above",done:false},
+  {id:2,text:"Try pressing j and k",done:false},
+  {id:3,text:"Press x to toggle this one",done:false},
+  {id:4,text:"Press i to add a new item",done:false}
+];
+let nextId=5;
+let selected=0;
+let mode="normal";
+let pendingKey="";
+let pendingTimer=null;
+let editingId=null;
+let view="all";
+let undoStack=[];
+let filter="";
+
+function snapshot(){
+  undoStack.push(JSON.parse(JSON.stringify(todos)));
+  if(undoStack.length>50)undoStack.shift();
+}
+
+function visibleTodos(){
+  let list=todos;
+  if(view==="done")list=list.filter(t=>t.done);
+  else if(view==="todo")list=list.filter(t=>!t.done);
+  if(filter)list=list.filter(t=>t.text.toLowerCase().includes(filter.toLowerCase()));
+  return list;
+}
+
+function render(){
+  const list=visibleTodos();
+  const container=$("rows-container");
+  if(list.length===0){
+    container.innerHTML='<div class="empty">No items. Press <kbd>i</kbd> to add one.</div>';
+  }else{
+    if(selected>=list.length)selected=list.length-1;
+    if(selected<0)selected=0;
+    container.innerHTML=list.map((t,i)=>{
+      return`<div class="todo-row ${t.done?"done":""} ${i===selected?"selected":""}" data-id="${t.id}">
+        <span class="todo-num">${i+1}.</span>
+        <span class="checkbox" aria-hidden="true"></span>
+        <span class="todo-text">${escapeHtml(t.text)}</span>
+      </div>`;
+    }).join("");
+  }
+  $("todo-count").textContent=todos.filter(t=>!t.done).length;
+  $("done-count").textContent=todos.filter(t=>t.done).length;
+  let label=`View: ${view}`;
+  if(filter)label+=` | filter: "${filter}"`;
+  $("filter-state").textContent=label;
+}
+
+function setStatus(msg){
+  $("status-line").innerHTML=msg;
+}
+
+function showCmdBar(label,initial=""){
+  mode="cmd";
+  $("cmd-bar").classList.add("show");
+  $("cmd-label").textContent=label;
+  $("cmd-input").value=initial;
+  $("cmd-input").focus();
+}
+
+function hideCmdBar(){
+  mode="normal";
+  $("cmd-bar").classList.remove("show");
+  $("cmd-input").value="";
+  document.body.focus();
+}
+
+function addItem(text,atTop=false){
+  if(!text.trim())return;
+  snapshot();
+  const item={id:nextId++,text:text.trim(),done:false};
+  if(atTop)todos.unshift(item);else todos.push(item);
+  render();
+}
+
+function toggleSelected(){
+  const list=visibleTodos();
+  if(list.length===0)return;
+  snapshot();
+  const id=list[selected].id;
+  const idx=todos.findIndex(t=>t.id===id);
+  if(idx>=0)todos[idx].done=!todos[idx].done;
+  render();
+}
+
+function deleteSelected(){
+  const list=visibleTodos();
+  if(list.length===0)return;
+  snapshot();
+  const id=list[selected].id;
+  todos=todos.filter(t=>t.id!==id);
+  if(selected>=visibleTodos().length)selected=Math.max(0,visibleTodos().length-1);
+  render();
+}
+
+function startEdit(){
+  const list=visibleTodos();
+  if(list.length===0)return;
+  const item=list[selected];
+  editingId=item.id;
+  showCmdBar("edit:",item.text);
+}
+
+function applyEdit(text){
+  if(editingId!=null&&text.trim()){
+    snapshot();
+    const idx=todos.findIndex(t=>t.id===editingId);
+    if(idx>=0)todos[idx].text=text.trim();
+  }
+  editingId=null;
+  render();
+}
+
+function undo(){
+  if(undoStack.length===0){setStatus("Nothing to undo");return}
+  todos=undoStack.pop();
+  render();
+  setStatus("Undid last action");
+}
+
+function setView(v){
+  view=v;
+  selected=0;
+  render();
+  setStatus(`View: ${v}`);
+}
+
+document.addEventListener("keydown",e=>{
+  if(mode==="cmd"){
+    if(e.key==="Escape"){
+      e.preventDefault();
+      if(editingId!=null){editingId=null}
+      hideCmdBar();
+    }
+    return;
+  }
+  // Don't trap when typing in inputs (none normally)
+  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;
+
+  // dd handling
+  if(pendingKey==="d"){
+    clearTimeout(pendingTimer);
+    pendingKey="";
+    if(e.key==="d"){e.preventDefault();deleteSelected();setStatus("Deleted");return}
+  }
+  // gg handling
+  if(pendingKey==="g"){
+    clearTimeout(pendingTimer);
+    pendingKey="";
+    if(e.key==="g"){e.preventDefault();selected=0;render();setStatus("Top");return}
+  }
+
+  const list=visibleTodos();
+
+  switch(e.key){
+    case "j":case "ArrowDown":
+      e.preventDefault();
+      if(list.length>0){selected=Math.min(list.length-1,selected+1);render()}
+      break;
+    case "k":case "ArrowUp":
+      e.preventDefault();
+      if(list.length>0){selected=Math.max(0,selected-1);render()}
+      break;
+    case "x":case " ":case "Enter":
+      e.preventDefault();
+      toggleSelected();
+      break;
+    case "i":
+      e.preventDefault();
+      showCmdBar("new:");
+      break;
+    case "A":
+      e.preventDefault();
+      // Use a flag to indicate add-at-top
+      showCmdBar("new (top):");
+      mode="cmd-top";
+      break;
+    case "e":
+      e.preventDefault();
+      startEdit();
+      break;
+    case "u":
+      e.preventDefault();
+      undo();
+      break;
+    case "G":
+      e.preventDefault();
+      if(list.length>0){selected=list.length-1;render();setStatus("Bottom")}
+      break;
+    case "g":
+      e.preventDefault();
+      pendingKey="g";
+      pendingTimer=setTimeout(()=>{pendingKey="";setStatus("g... (waiting for g)")},500);
+      setStatus("g...");
+      break;
+    case "d":
+      e.preventDefault();
+      pendingKey="d";
+      pendingTimer=setTimeout(()=>{pendingKey="";setStatus("d... (waiting for d)")},500);
+      setStatus("d... (press d again to delete)");
+      break;
+    case "/":
+      e.preventDefault();
+      showCmdBar("/",filter);
+      mode="cmd-filter";
+      break;
+    case "!":
+      e.preventDefault();
+      showCmdBar("!");
+      mode="cmd-view";
+      break;
+    case "?":
+      e.preventDefault();
+      setStatus('See shortcuts above. <span class="key">i</span> add, <span class="key">x</span> toggle, <span class="key">dd</span> delete, <span class="key">u</span> undo');
+      break;
+    case "Escape":
+      filter="";
+      render();
+      setStatus("Cleared filter");
+      break;
+  }
+});
+
+$("cmd-input").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    const text=$("cmd-input").value;
+    if(mode==="cmd"&&editingId!=null){
+      applyEdit(text);
+    }else if(mode==="cmd-top"){
+      addItem(text,true);
+    }else if(mode==="cmd-filter"){
+      filter=text;
+      selected=0;
+      render();
+      setStatus(filter?`Filter: "${filter}"`:"Filter cleared");
+    }else if(mode==="cmd-view"){
+      const v=text.trim().toLowerCase();
+      if(["all","done","todo"].includes(v)){setView(v)}
+      else{setStatus(`Unknown view: ${v}. Try all, done, or todo.`)}
+    }else{
+      addItem(text,false);
+    }
+    hideCmdBar();
+  }else if(e.key==="Escape"){
+    e.preventDefault();
+    if(editingId!=null)editingId=null;
+    hideCmdBar();
+  }
+});
+
+$("rows-container").addEventListener("click",e=>{
+  const row=e.target.closest(".todo-row");
+  if(!row)return;
+  const id=parseInt(row.dataset.id,10);
+  const list=visibleTodos();
+  const idx=list.findIndex(t=>t.id===id);
+  if(idx>=0){selected=idx;render()}
+});
+
+function applyTheme(t){
+  document.body.dataset.theme=t;
+  $("theme-label").textContent=t==="dark"?"Light":"Dark";
+  $("theme-btn").setAttribute("aria-pressed",String(t==="dark"));
+  const icon=$("theme-icon");
+  if(t==="dark")icon.innerHTML='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+  else icon.innerHTML='<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>';
+}
+$("theme-btn").addEventListener("click",()=>applyTheme(document.body.dataset.theme==="dark"?"light":"dark"));
+if(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)applyTheme("dark");
+
+render();
+</script>
+</body>
+</html>
