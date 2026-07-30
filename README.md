@@ -53,6 +53,10 @@ If you fork and want persistence, the relevant function is at the top of the scr
 - Doesn't support touch gestures (it's keyboard-driven; tap-to-select still works on mobile)
 - Doesn't auto-save anywhere
 
+## More
+
+Part of a catalog of single-file browser tools and plain-language references, all MIT licensed and dependency-free: [0xelitesystem.github.io](https://0xelitesystem.github.io/). Built by [elitesystem.ai](https://elitesystem.ai).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
