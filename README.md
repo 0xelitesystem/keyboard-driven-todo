@@ -4,15 +4,37 @@ A todo list with vim-style keyboard shortcuts. Single HTML file. No mouse requir
 
 **Live demo:** https://0xelitesystem.github.io/keyboard-driven-todo/
 
-## Why
+## Use
+
+1. Press `i` to add an item (or `A` to add it at the top) and type it.
+2. Move with `j` and `k`, toggle done with `x`, edit with `e`, and delete with `dd`.
+3. Press `/` to filter by text, or `!` then `all`, `done` or `todo` to switch view.
+4. Press `?` to show the shortcuts in the status bar, and `u` to undo.
+
+## Why this exists
 
 Most todo apps over-engineer interaction: drag handles, multi-select toolbars, settings menus. For a personal todo list, all you need is "add, toggle done, delete, navigate." All of those map cleanly to single keys.
 
 This is the smallest todo I'd actually use.
 
-## Use it
+## Privacy
+
+Everything runs in your browser and the page makes no network requests. Todos live in memory only: nothing is written to `localStorage`, cookies or any server, so closing or refreshing the tab clears them.
+
+## Run locally
 
 Open `index.html` in any browser, or visit the hosted version at `https://0xelitesystem.github.io/keyboard-driven-todo/` once Pages is enabled.
+
+```
+git clone https://github.com/0xelitesystem/keyboard-driven-todo
+cd keyboard-driven-todo
+```
+
+Then open `index.html`, or serve the folder with `python -m http.server` and visit http://localhost:8000.
+
+## Build
+
+No build step. The whole tool is one `index.html` with inline CSS and JavaScript and no dependencies.
 
 ## Shortcuts
 
