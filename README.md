@@ -85,6 +85,6 @@ MIT. See [LICENSE](LICENSE).
 
 ## Related
 
-- [terminal-portfolio](https://github.com/0xelitesystem/terminal-portfolio), interactive terminal portfolio
+- [single-file-shell-portfolio](https://github.com/0xelitesystem/single-file-shell-portfolio), interactive terminal portfolio
 - [regex-tester-with-explainer](https://github.com/0xelitesystem/regex-tester-with-explainer), regex playground
 - [single-file-saas-template](https://github.com/0xelitesystem/single-file-saas-template), ship a SaaS in one HTML file
